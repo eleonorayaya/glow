@@ -340,6 +340,13 @@ func (m pagerModel) helpView() (s string) {
 // COMMANDS
 
 func renderWithGlamour(m pagerModel, md string) tea.Cmd {
+	// Until the first WindowSizeMsg the viewport has no width, and rendering
+	// would word-wrap at 0 (i.e. not at all). That render races the one
+	// triggered by the WindowSizeMsg, and if it finishes last the configured
+	// width is lost. The WindowSizeMsg will trigger the render instead.
+	if m.viewport.Width() == 0 {
+		return nil
+	}
 	return func() tea.Msg {
 		s, err := glamourRender(m, md)
 		if err != nil {
