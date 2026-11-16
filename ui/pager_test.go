@@ -3,6 +3,8 @@ package ui
 import (
 	"strings"
 	"testing"
+
+	"charm.land/lipgloss/v2"
 )
 
 func TestGlamourRenderTextSizing(t *testing.T) {
@@ -39,5 +41,35 @@ func TestGlamourRenderTextSizing(t *testing.T) {
 	}
 	if strings.Contains(out, "\x1b]6666;") {
 		t.Errorf("expected no leftover markers in pager output, got %q", out)
+	}
+}
+
+func TestRenderWithGlamourWaitsForWindowSize(t *testing.T) {
+	common := &commonModel{
+		cfg: Config{
+			GlamourEnabled:  true,
+			GlamourStyle:    "notty",
+			GlamourMaxWidth: 40,
+		},
+		styles: newStyles(true),
+	}
+	m := newPagerModel(common)
+	m.currentDocument = markdown{Note: "test.md"}
+	body := strings.Repeat("word ", 40)
+
+	// Before the first WindowSizeMsg there is no width to wrap at.
+	if cmd := renderWithGlamour(m, body); cmd != nil {
+		t.Fatal("expected no render before the viewport has a width")
+	}
+
+	m.setSize(200, 24)
+	msg, ok := renderWithGlamour(m, body)().(contentRenderedMsg)
+	if !ok {
+		t.Fatalf("expected contentRenderedMsg, got %T", msg)
+	}
+	for _, line := range strings.Split(string(msg), "\n") {
+		if w := lipgloss.Width(line); w > 40 {
+			t.Errorf("line wider than GlamourMaxWidth (%d > 40): %q", w, line)
+		}
 	}
 }
